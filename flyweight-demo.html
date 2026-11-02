@@ -1,0 +1,303 @@
+<title>Demo Flyweight</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Rubik:wght@500;600;700&display=swap">
+<style>
+/* Layout: cabeçalho curto, barra de controles e dois painéis lado a lado (com / sem Flyweight) que empilham no celular. */
+:root {
+  --bg: #F1F3F7;
+  --surface: #FAFBFD;
+  --fg: #14213D;
+  --muted: #536078;
+  --line: #D6DCE7;
+  --bad: #A8400A;
+  --bad-bg: #FBE8DA;
+  --good: #176080;
+  --good-bg: #D9EDF5;
+  --track: #DDE3EE;
+  --font-display: 'Rubik', 'Segoe UI', Arial, sans-serif;
+  --font-body: 'DM Sans', 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1525; --surface: #152038; --fg: #E6EBF5; --muted: #9AA9C4; --line: #2A3857;
+    --bad: #F2A777; --bad-bg: #3A2417; --good: #86CBE6; --good-bg: #11303E; --track: #26334F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1525; --surface: #152038; --fg: #E6EBF5; --muted: #9AA9C4; --line: #2A3857;
+  --bad: #F2A777; --bad-bg: #3A2417; --good: #86CBE6; --good-bg: #11303E; --track: #26334F;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.5;
+  padding-block: 40px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.eyebrow { font-size: 14px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(28px, 4.2vw, 44px); line-height: 1.12; margin: 6px 0 10px; text-wrap: balance; }
+.lede { max-width: 62ch; color: var(--muted); margin: 0; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.controls label { font-weight: 500; }
+.controls select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; margin-left: 8px; }
+.check { display: flex; align-items: center; gap: 8px; }
+.check input { width: 18px; height: 18px; accent-color: var(--good); }
+.tip { margin: 0; color: var(--muted); font-size: 15px; flex-basis: 100%; }
+button { font: inherit; font-weight: 700; cursor: pointer; border-radius: 8px; border: 1px solid transparent; padding: 9px 16px; }
+button.primary { background: var(--fg); color: var(--bg); }
+button:disabled { opacity: .55; cursor: progress; }
+:focus-visible { outline: 3px solid var(--good); outline-offset: 2px; }
+.panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.panel { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tag { align-self: flex-start; font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; }
+.panel[data-kind="sem"] .tag { background: var(--bad-bg); color: var(--bad); }
+.panel[data-kind="com"] .tag { background: var(--good-bg); color: var(--good); }
+.panel h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1.2; margin: 0; }
+.panel .desc { margin: 0; color: var(--muted); font-size: 16px; }
+.estilo { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); font-family: var(--font-mono); font-size: 14px; }
+.estilo span { display: block; font-family: var(--font-body); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.field { display: flex; gap: 8px; }
+.field input { flex: 1; min-width: 0; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.panel[data-kind="sem"] .field button { background: var(--bad); color: var(--bad-bg); }
+.panel[data-kind="com"] .field button { background: var(--good); color: var(--good-bg); }
+.hint { margin: -6px 0 0; font-size: 14px; color: var(--muted); }
+.bar { height: 10px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.bar span { display: block; height: 100%; width: 0; border-radius: 999px; }
+.panel[data-kind="sem"] .bar span { background: var(--bad); }
+.panel[data-kind="com"] .bar span { background: var(--good); }
+.state { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; min-height: 28px; font-weight: 500; }
+.spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--track); border-top-color: currentColor; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.panel[data-kind="sem"] .spin { color: var(--bad); }
+.panel[data-kind="com"] .spin { color: var(--good); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.stats div { border-top: 2px solid var(--line); padding-top: 8px; min-width: 0; }
+.stats dt { font-size: 14px; color: var(--muted); }
+.stats dd { margin: 2px 0 0; font-family: var(--font-mono); font-weight: 700; font-size: clamp(18px, 2.4vw, 26px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.preview { border-top: 1px dashed var(--line); padding-top: 12px; min-height: 96px; font-size: 16px; }
+.preview .label { font-size: 14px; color: var(--muted); margin: 0 0 6px; }
+.preview .text { font-family: Arial, 'Liberation Sans', sans-serif; font-size: 14px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chips span { font-family: var(--font-mono); font-size: 13px; padding: 3px 8px; border-radius: 6px; background: var(--good-bg); color: var(--good); }
+.verdict { padding: 16px 20px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 18px; }
+.verdict b { font-family: var(--font-display); font-weight: 600; }
+.foot { margin: 0; color: var(--muted); font-size: 14px; max-width: 80ch; }
+@media (max-width: 760px) {
+  .panels { grid-template-columns: minmax(0, 1fr); }
+  .stats { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <div class="eyebrow">Padrão de projeto Flyweight</div>
+    <h1>Editor de texto, com e sem Flyweight</h1>
+    <p class="lede">Digite um texto, aperte Enter e veja quantos objetos de estilo cada versão precisa criar para montar o documento inteiro.</p>
+  </header>
+
+  <section class="controls" aria-label="Controles da demonstração">
+    <label for="size">Tamanho do documento
+      <select id="size">
+        <option value="50000">50 mil caracteres</option>
+        <option value="100000" selected>100 mil caracteres</option>
+        <option value="200000">200 mil caracteres</option>
+      </select>
+    </label>
+    <label class="check" for="mirror"><input type="checkbox" id="mirror" checked> Espelhar o texto nos dois campos</label>
+    <button class="primary" id="both" type="button">Processar os dois</button>
+    <p class="tip">O texto digitado se repete até completar o tamanho escolhido. Coloque *palavras entre asteriscos* para deixá-las em negrito.</p>
+  </section>
+
+  <section class="panels" id="panels"></section>
+  <div class="verdict" id="verdict" hidden></div>
+  <p class="foot">Cada estilo criado simula o carregamento de uma fonte (1 KB de dados e um cálculo), por isso a versão sem Flyweight demora. O tempo é medido de verdade no seu navegador. A memória é uma estimativa: estilos × 1,1 KB + caracteres × 64 bytes.</p>
+</main>
+
+<script>
+(function () {
+  var SAMPLE = 'O *Flyweight* guarda o estilo uma só vez e todas as letras *reaproveitam* esse mesmo objeto. ';
+  var WORK = 8; // repetições do cálculo que simula carregar uma fonte
+
+  /* ---- Flyweight: estado intrínseco (compartilhado) ---- */
+  function EstiloCaractere(fonte, tamanho, cor, negrito) {
+    this.fonte = fonte; this.tamanho = tamanho; this.cor = cor; this.negrito = negrito;
+    this.dados = carregarFonte();
+  }
+  function carregarFonte() {
+    var d = new Uint8Array(1024), h = 2166136261;
+    for (var i = 0; i < 1024; i++) {
+      for (var k = 0; k < WORK; k++) { h = Math.imul(h ^ i, 16777619) >>> 0; }
+      d[i] = h & 255;
+    }
+    return d;
+  }
+  /* ---- Contexto: estado extrínseco (único de cada letra) ---- */
+  function Caractere(letra, posicao, estilo) { this.letra = letra; this.posicao = posicao; this.estilo = estilo; }
+
+  var CONFIG = {
+    sem: { tag: 'Sem Flyweight', title: 'Um estilo para cada letra', desc: 'Cada caractere cria o próprio objeto de estilo, mesmo quando é igual ao da letra do lado.' },
+    com: { tag: 'Com Flyweight', title: 'Estilos compartilhados pela fábrica', desc: 'A fábrica entrega um estilo que já existe e só cria um novo quando ainda não há igual.' }
+  };
+  var panels = {};
+  var host = document.getElementById('panels');
+
+  ['sem', 'com'].forEach(function (kind) {
+    var c = CONFIG[kind];
+    var el = document.createElement('article');
+    el.className = 'panel'; el.setAttribute('data-kind', kind);
+    el.innerHTML =
+      '<span class="tag">' + c.tag + '</span>' +
+      '<h2>' + c.title + '</h2><p class="desc">' + c.desc + '</p>' +
+      '<p class="estilo"><span>Estilo utilizado</span> Arial, 12, preto (normal ou negrito)</p>' +
+      '<label for="in-' + kind + '" style="font-weight:500">Texto</label>' +
+      '<div class="field"><input id="in-' + kind + '" type="text" autocomplete="off" spellcheck="false"><button type="button">Processar</button></div>' +
+      '<p class="hint">Aperte Enter para processar</p>' +
+      '<div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>' +
+      '<p class="state" aria-live="polite"></p></div>' +
+      '<dl class="stats">' +
+      '<div><dt>Estilos criados</dt><dd data-s="styles">0</dd></div>' +
+      '<div><dt>Tempo</dt><dd data-s="time">0,00 s</dd></div>' +
+      '<div><dt>Memória estimada</dt><dd data-s="mem">0 MB</dd></div></dl>' +
+      '<div class="preview"></div>';
+    host.appendChild(el);
+    var p = {
+      kind: kind, el: el, running: false, chars: null, cache: null, result: null,
+      input: el.querySelector('input'), btn: el.querySelector('button'),
+      barFill: el.querySelector('.bar span'), bar: el.querySelector('.bar'),
+      state: el.querySelector('.state'), preview: el.querySelector('.preview'),
+      sStyles: el.querySelector('[data-s="styles"]'), sTime: el.querySelector('[data-s="time"]'), sMem: el.querySelector('[data-s="mem"]')
+    };
+    p.input.value = SAMPLE;
+    p.state.textContent = 'Aguardando. Aperte Enter para começar.';
+    p.preview.innerHTML = '<p class="label">O documento processado aparece aqui.</p>';
+    p.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); run(kind); } });
+    p.btn.addEventListener('click', function () { run(kind); });
+    p.input.addEventListener('input', function () {
+      if (document.getElementById('mirror').checked) {
+        var other = panels[kind === 'sem' ? 'com' : 'sem'];
+        if (other) other.input.value = p.input.value;
+      }
+    });
+    panels[kind] = p;
+  });
+
+  var sizeSel = document.getElementById('size');
+  var bothBtn = document.getElementById('both');
+  var verdict = document.getElementById('verdict');
+
+  function fmt(n) { return n.toLocaleString('pt-BR'); }
+  function fmtTime(ms) { return (ms / 1000).toFixed(2).replace('.', ',') + ' s'; }
+  function estMem(styles, chars) { return (styles * 1124 + chars * 64) / 1048576; }
+  function fmtMem(mb) { return mb.toFixed(1).replace('.', ',') + ' MB'; }
+
+  function parseUnit(str) {
+    var unit = [], bold = false;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str[i];
+      if (ch === '*') { bold = !bold; continue; }
+      unit.push({ ch: ch, bold: bold });
+    }
+    if (!unit.length) return parseUnit(SAMPLE);
+    return unit;
+  }
+
+  function show(p, done, n, i, styles, t) {
+    var pct = Math.round((i / n) * 100);
+    p.barFill.style.width = pct + '%';
+    p.bar.setAttribute('aria-valuenow', String(pct));
+    p.sStyles.textContent = fmt(styles);
+    p.sTime.textContent = fmtTime(t);
+    p.sMem.textContent = fmtMem(estMem(styles, i));
+    if (!done) p.state.innerHTML = '<span class="spin" aria-hidden="true"></span><span>Processando… ' + pct + '%</span>';
+  }
+
+  function renderPreview(p, n, styles) {
+    var box = p.preview; box.innerHTML = '';
+    var label = document.createElement('p'); label.className = 'label';
+    label.textContent = 'Primeiros 160 de ' + fmt(n) + ' caracteres (negrito onde você usou asteriscos):';
+    var text = document.createElement('p'); text.className = 'text';
+    var cur = null, curBold = null;
+    for (var k = 0; k < Math.min(160, p.chars.length); k++) {
+      var c = p.chars[k];
+      if (c.estilo.negrito !== curBold) {
+        curBold = c.estilo.negrito;
+        cur = document.createElement(curBold ? 'b' : 'span');
+        text.appendChild(cur);
+      }
+      cur.textContent += c.letra;
+    }
+    box.appendChild(label); box.appendChild(text);
+    if (p.kind === 'com') {
+      var chips = document.createElement('div'); chips.className = 'chips';
+      p.cache.forEach(function (st) {
+        var s = document.createElement('span');
+        s.textContent = st.fonte + ' ' + st.tamanho + ' ' + st.cor + (st.negrito ? ' negrito' : '');
+        chips.appendChild(s);
+      });
+      box.appendChild(chips);
+    }
+  }
+
+  function run(kind) {
+    var p = panels[kind];
+    if (p.running) return Promise.resolve();
+    p.running = true; p.chars = null; p.cache = null; p.result = null;
+    verdict.hidden = true;
+    p.btn.disabled = true; bothBtn.disabled = true;
+    var n = parseInt(sizeSel.value, 10);
+    var unit = parseUnit(p.input.value);
+    var chars = new Array(n), cache = new Map();
+    var styles = 0, i = 0;
+    var t0 = performance.now();
+    p.preview.innerHTML = '<p class="label">Criando os objetos do documento…</p>';
+
+    return new Promise(function (resolve) {
+      function frame() {
+        var end = performance.now() + 14;
+        while (i < n) {
+          var u = unit[i % unit.length];
+          var key = 'Arial|12|preto|' + u.bold;
+          var estilo;
+          if (kind === 'sem') {
+            estilo = new EstiloCaractere('Arial', 12, 'preto', u.bold); styles++;
+          } else {
+            estilo = cache.get(key);
+            if (!estilo) { estilo = new EstiloCaractere('Arial', 12, 'preto', u.bold); cache.set(key, estilo); styles++; }
+          }
+          chars[i] = new Caractere(u.ch, i, estilo);
+          i++;
+          if ((i & 127) === 0 && performance.now() > end) break;
+        }
+        var t = performance.now() - t0;
+        if (i < n) { show(p, false, n, i, styles, t); requestAnimationFrame(frame); return; }
+        p.chars = chars; p.cache = cache; p.result = { n: n, styles: styles, ms: t };
+        show(p, true, n, n, styles, t);
+        p.state.textContent = 'Pronto em ' + fmtTime(t) + '.';
+        renderPreview(p, n, styles);
+        p.running = false; p.btn.disabled = false; bothBtn.disabled = panels.sem.running || panels.com.running;
+        compare();
+        resolve();
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  function compare() {
+    var a = panels.sem.result, b = panels.com.result;
+    if (!a || !b || a.n !== b.n) return;
+    var ratio = Math.round(a.styles / Math.max(1, b.styles));
+    var faster = b.ms > 0 ? (a.ms / b.ms) : 0;
+    verdict.innerHTML = 'Para ' + fmt(a.n) + ' caracteres: <b>' + fmt(a.styles) + ' estilos</b> sem Flyweight contra <b>' + fmt(b.styles) +
+      ' com Flyweight</b> (' + fmt(ratio) + '× menos objetos)' + (faster >= 1.5 ? ', e a versão com Flyweight terminou cerca de ' + Math.round(faster) + '× mais rápido.' : '.');
+    verdict.hidden = false;
+  }
+
+  sizeSel.addEventListener('change', function () { verdict.hidden = true; });
+  bothBtn.addEventListener('click', function () { run('sem').then(function () { return run('com'); }); });
+})();
+</script>
